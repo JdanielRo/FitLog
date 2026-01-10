@@ -12,32 +12,71 @@
         .container { width: 100%; max-width: 500px; position: relative; }
         .card { background: var(--card); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 1rem; }
         
-        /* Tipografía y Entradas */
         h2, h3 { margin-top: 0; text-align: center; color: var(--p); }
         input, select, button { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 16px; outline: none; }
+        
+        /* FIX PARA EL CALENDARIO EN IPHONE */
+        #calendar-input { 
+            width: 100%; 
+            max-width: 250px; /* Evita que se estire demasiado */
+            margin: 0 auto 15px auto; 
+            display: block; 
+            text-align: center;
+            -webkit-appearance: none; /* Quita estilo nativo de iOS */
+            appearance: none;
+            cursor: pointer;
+        }
+
         button { background: var(--p); color: white; border: none; font-weight: 700; cursor: pointer; transition: transform 0.1s; }
         button:active { transform: scale(0.98); }
         .btn-sec { background: #64748b; }
         .btn-danger { background: var(--danger); }
         .btn-outline { background: transparent; border: 2px solid var(--p); color: var(--p); }
 
-        /* Navegación de Fecha Responsive */
+        /* Navegación de Fecha */
         .date-nav-container { display: flex; align-items: center; justify-content: center; width: 100%; gap: 10px; margin-bottom: 1.5rem; }
-        .date-display { flex-grow: 0; min-width: 160px; text-align: center; background: var(--p); color: white; padding: 8px 20px; border-radius: 25px; font-weight: 800; font-size: 1.1rem; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); }
+        .date-display { flex: 1; max-width: 180px; text-align: center; background: var(--p); color: white; padding: 8px 10px; border-radius: 25px; font-weight: 800; font-size: 1.1rem; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); }
         .nav-arrow { width: 45px !important; flex-shrink: 0; padding: 8px !important; margin: 0 !important; }
 
-        /* Modales e Interfaz interna */
+        /* Modales */
         .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.8); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
-        .modal { background: white; padding: 2rem; border-radius: 24px; width: 100%; max-width: 400px; text-align: center; animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal { background: white; padding: 2rem; border-radius: 24px; width: 100%; max-width: 400px; text-align: center; }
         
-        .error-msg { color: var(--danger); font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; text-align: left; display: none; }
-        .hidden { display: none !important; }
-        
-        .meal-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
-        .meal-info { display: flex; flex-direction: column; }
+        /* Asegura que el contenedor no se desborde y distribuya bien el espacio */
+        .meal-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 12px 0; 
+            border-bottom: 1px solid #f1f5f9;
+            gap: 10px; /* Espacio mínimo entre texto y botón */
+        }
+
+        /* Controla que el texto no empuje al botón */
+        .meal-info { 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; /* Corta el desborde */
+            flex: 1; /* Toma todo el espacio disponible menos el del botón */
+        }
+
+        /* Fuerza a que los nombres largos salten de línea */
+        .meal-info span:first-child {
+            word-break: break-word; /* Rompe palabras largas */
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+
+        /* Evita que el botón se encoja cuando hay mucho texto */
+        .delete-btn { 
+            width: auto !important; 
+            padding: 8px 12px !important; 
+            font-size: 12px; 
+            margin: 0 !important; 
+            flex-shrink: 0; /* IMPRESCINDIBLE: evita que el texto aplaste al botón */
+        }
         .meal-cals { font-weight: 800; color: var(--p); }
-        .delete-btn { width: auto !important; padding: 5px 12px !important; font-size: 12px; margin: 0 !important; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -204,13 +243,18 @@
         }
     }
 
-    // --- NAVEGACIÓN DE FECHAS ---
+    // --- NAVEGACIÓN DE FECHAS SEGURA ---
     function updateUI() {
         const today = getTodayStr();
+        
+        // Forzamos el atributo max cada vez que se actualiza la interfaz
+        const calendar = document.getElementById('calendar-input');
+        calendar.max = today; 
+        
         document.getElementById('date-label').innerText = (activeDateStr === today) ? "HOY" : activeDateStr;
-        document.getElementById('calendar-input').value = activeDateStr;
-        document.getElementById('calendar-input').max = today;
+        calendar.value = activeDateStr;
         document.getElementById('next-btn').disabled = (activeDateStr >= today);
+        
         renderStats();
         renderMeals();
     }
@@ -222,8 +266,19 @@
         if(newStr <= getTodayStr()) { activeDateStr = newStr; updateUI(); }
     }
 
-    function jumpToDate(v) { if(v) { activeDateStr = v; updateUI(); } }
-
+    function jumpToDate(v) { 
+        if(!v) return;
+        
+        const today = getTodayStr();
+        // Validación extra para navegadores que ignoran el atributo 'max'
+        if (v > today) {
+            alert("No puedes registrar comidas en fechas futuras.");
+            activeDateStr = today; // Reset a hoy
+        } else {
+            activeDateStr = v;
+        }
+        updateUI();
+    }
     function getProfileIndexForDate(dateStr) {
         let bestIdx = -1;
         for(let i=0; i<db.profiles.length; i++) {
@@ -253,7 +308,7 @@
         list.innerHTML = (db.days[activeDateStr] || []).map((m, i) => `
             <div class="meal-item">
                 <div class="meal-info">
-                    <span style="font-size: 0.9rem;">${m.name}</span>
+                    <span>${m.name}</span>
                     <span class="meal-cals">${m.cals} kcal</span>
                 </div>
                 <button class="btn-danger delete-btn" onclick="deleteMeal(${i})">Eliminar</button>
